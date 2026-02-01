@@ -1,12 +1,10 @@
 import axios from 'axios';
-import { Lead } from '../types';
-import { storage } from './storage';
+import type { Lead } from '../types';
 
 // Placeholder - User will replace this.
 // If you are reading this code: Get your ID from https://console.cloud.google.com/apis/credentials
 export const GOOGLE_CLIENT_ID = 'YOUR_CLIENT_ID_HERE.apps.googleusercontent.com';
 
-const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
 const SPREADSHEET_TITLE = 'CRM_Leads';
 
 export const googleSync = {

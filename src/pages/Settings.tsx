@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { Download, Upload, Trash2, Database, Plus, X, Edit2, Share2, Cloud, RefreshCw, LogOut } from 'lucide-react';
+import { Download, Upload, Trash2, Database, Plus, X, Edit2, Cloud, RefreshCw, LogOut } from 'lucide-react';
 import { storage } from '../lib/storage';
 import { importer } from '../lib/importer';
 import { googleSync, GOOGLE_CLIENT_ID } from '../lib/googleSync';
@@ -8,8 +8,122 @@ import type { MessageTemplate } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { useNavigate } from 'react-router-dom';
 import { useGoogleLogin } from '@react-oauth/google';
+import { cn } from '../lib/cn';
 
-// ... (TemplateManager remains same, skipping for brevity in this replace) ...
+function TemplateManager() {
+    const [templates, setTemplates] = useState<MessageTemplate[]>([]);
+    const [isAdding, setIsAdding] = useState(false);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [form, setForm] = useState({ name: '', content: '' });
+
+    useEffect(() => {
+        const saved = localStorage.getItem('crm_templates');
+        if (saved) {
+            setTemplates(JSON.parse(saved));
+        }
+    }, []);
+
+    const saveTemplates = (newTemplates: MessageTemplate[]) => {
+        setTemplates(newTemplates);
+        localStorage.setItem('crm_templates', JSON.stringify(newTemplates));
+    };
+
+    const handleSave = () => {
+        if (!form.name || !form.content) return;
+
+        if (editingId) {
+            const updated = templates.map(t => t.id === editingId ? { ...t, ...form } : t);
+            saveTemplates(updated);
+            setEditingId(null);
+        } else {
+            const newTemplate = { id: uuidv4(), ...form };
+            saveTemplates([...templates, newTemplate]);
+            setIsAdding(false);
+        }
+        setForm({ name: '', content: '' });
+    };
+
+    const handleDelete = (id: string) => {
+        if (confirm('Delete this template?')) {
+            saveTemplates(templates.filter(t => t.id !== id));
+        }
+    };
+
+    const startEdit = (t: MessageTemplate) => {
+        setForm({ name: t.name, content: t.content });
+        setEditingId(t.id);
+        setIsAdding(false);
+    };
+
+    return (
+        <div className="bg-card border border-border rounded-xl p-4 space-y-4">
+            {!isAdding && !editingId && (
+                <button
+                    onClick={() => setIsAdding(true)}
+                    className="w-full py-2 border border-dashed border-zinc-700 rounded-lg text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2"
+                >
+                    <Plus size={16} />
+                    Create New Template
+                </button>
+            )}
+
+            {(isAdding || editingId) && (
+                <div className="space-y-3 bg-zinc-900/50 p-3 rounded-lg border border-border">
+                    <div className="flex justify-between items-center mb-2">
+                        <h3 className="text-sm font-medium">{editingId ? 'Edit Template' : 'New Template'}</h3>
+                        <button
+                            onClick={() => { setIsAdding(false); setEditingId(null); setForm({ name: '', content: '' }); }}
+                            className="text-zinc-500 hover:text-zinc-300"
+                        >
+                            <X size={16} />
+                        </button>
+                    </div>
+                    <input
+                        placeholder="Template Name (e.g. Intro)"
+                        value={form.name}
+                        onChange={e => setForm({ ...form, name: e.target.value })}
+                        className="w-full bg-zinc-900 border border-border rounded-lg p-2.5 text-sm"
+                    />
+                    <textarea
+                        placeholder="Message content..."
+                        value={form.content}
+                        onChange={e => setForm({ ...form, content: e.target.value })}
+                        className="w-full bg-zinc-900 border border-border rounded-lg p-2.5 text-sm min-h-[80px]"
+                    />
+                    <button
+                        onClick={handleSave}
+                        disabled={!form.name || !form.content}
+                        className="w-full bg-primary text-primary-foreground py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                    >
+                        Save Template
+                    </button>
+                </div>
+            )}
+
+            <div className="space-y-2">
+                {templates.map(t => (
+                    <div key={t.id} className="group flex items-center justify-between p-3 bg-zinc-900/50 hover:bg-zinc-900 border border-border/50 rounded-lg transition-colors">
+                        <div className="min-w-0 flex-1 mr-4">
+                            <h4 className="text-sm font-medium text-zinc-200 truncate">{t.name}</h4>
+                            <p className="text-xs text-muted-foreground truncate opacity-70">{t.content}</p>
+                        </div>
+                        <div className="flex items-center gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => startEdit(t)} className="p-1.5 text-zinc-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-md">
+                                <Edit2 size={14} />
+                            </button>
+                            <button onClick={() => handleDelete(t.id)} className="p-1.5 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 rounded-md">
+                                <Trash2 size={14} />
+                            </button>
+                        </div>
+                    </div>
+                ))}
+                {templates.length === 0 && !isAdding && !editingId && (
+                    <p className="text-center text-xs text-muted-foreground py-2">No templates yet.</p>
+                )}
+            </div>
+        </div>
+    );
+}
 
 function CloudSyncSection() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
