@@ -205,9 +205,12 @@ export function Dashboard() {
                         {!selectionMode && userProfile.avatar && (
                             <img src={userProfile.avatar} alt="Profile" className="w-8 h-8 rounded-full border border-white/10 object-cover shadow-sm" />
                         )}
-                        <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent truncate max-w-[200px]">
-                            {selectionMode ? `${selectedIds.size} Selected` : (userProfile.name ? `Hello, ${userProfile.name}` : 'My Leads')}
-                        </h1>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Aerostic CRM</span>
+                            <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent truncate max-w-[200px]">
+                                {selectionMode ? `${selectedIds.size} Selected` : (userProfile.name ? `Hello, ${userProfile.name}` : 'My Leads')}
+                            </h1>
+                        </div>
                     </div>
 
                     <div className="flex gap-2">
@@ -342,6 +345,15 @@ export function Dashboard() {
 
                 {/* Monetization: Ad Banner */}
                 <AdBanner />
+
+                <footer className="py-6 text-center space-y-2 border-t border-white/5">
+                    <p className="text-xs text-zinc-500">© {new Date().getFullYear()} Aerostic CRM</p>
+                    <div className="flex items-center justify-center gap-4 text-[10px] text-zinc-400">
+                        <a href="/privacy-policy" className="hover:text-blue-400 transition-colors">Privacy Policy</a>
+                        <span className="text-zinc-700">•</span>
+                        <a href="/terms-condition" className="hover:text-blue-400 transition-colors">Terms of Service</a>
+                    </div>
+                </footer>
             </div>
 
             {/* Bulk Action Toolbar */}

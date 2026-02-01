@@ -10,9 +10,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
-        name: 'Mobile CRM',
-        short_name: 'CRM',
-        description: 'Local-first Personal CRM',
+        name: 'Aerostic CRM',
+        short_name: 'Aerostic',
+        description: 'Aerostic CRM - Local-first Personal CRM',
         theme_color: '#09090b',
         background_color: '#09090b',
         display: 'standalone',
