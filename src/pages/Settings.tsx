@@ -7,7 +7,7 @@ import { CATEGORIES, type Category } from '../lib/constants';
 import type { MessageTemplate } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { useNavigate } from 'react-router-dom';
-import { useGoogleLogin } from '@react-oauth/google';
+import { useGoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
 import { cn } from '../lib/cn';
 
 function TemplateManager() {
@@ -450,7 +450,9 @@ export function Settings() {
                     <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                         <Cloud size={14} /> Cloud Backup
                     </h2>
-                    <CloudSyncSection />
+                    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+                        <CloudSyncSection />
+                    </GoogleOAuthProvider>
                 </section>
 
                 <section className="space-y-3">
