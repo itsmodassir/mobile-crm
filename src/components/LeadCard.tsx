@@ -6,12 +6,13 @@ interface LeadCardProps {
     lead: Lead;
     onCall: (lead: Lead) => void;
     onClick: (lead: Lead) => void;
+    onWhatsApp: (lead: Lead) => void;
     selectionMode?: boolean;
     isSelected?: boolean;
     onToggleSelect?: (id: string) => void;
 }
 
-export function LeadCard({ lead, onCall, onClick, selectionMode, isSelected, onToggleSelect }: LeadCardProps) {
+export function LeadCard({ lead, onCall, onClick, onWhatsApp, selectionMode, isSelected, onToggleSelect }: LeadCardProps) {
 
     const handleClick = () => {
         if (selectionMode && onToggleSelect) {
@@ -98,17 +99,7 @@ export function LeadCard({ lead, onCall, onClick, selectionMode, isSelected, onT
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
-                        const cleanPhone = lead.phone.replace(/\D/g, '');
-                        const country = localStorage.getItem('crm_default_country') || '';
-                        const defaultMsg = localStorage.getItem('crm_default_wa_msg') || '';
-
-                        let finalPhone = cleanPhone;
-                        if (country && !cleanPhone.startsWith(country) && cleanPhone.length <= 10) {
-                            finalPhone = `${country}${cleanPhone}`;
-                        }
-
-                        const url = `https://wa.me/${finalPhone}?text=${encodeURIComponent(defaultMsg)}`;
-                        window.open(url, '_blank');
+                        onWhatsApp(lead);
                     }}
                     className="h-12 flex-1 rounded-xl flex items-center justify-center text-green-100 bg-green-600 hover:bg-green-500 shadow-lg shadow-green-500/20 active:scale-95 transition-all"
                     aria-label="WhatsApp"

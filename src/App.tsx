@@ -6,6 +6,7 @@ import { Settings } from './pages/Settings';
 import { LeadDetails } from './pages/LeadDetails';
 import { Reports } from './pages/Reports';
 import { Legal } from './pages/Legal';
+import { UserGuide } from './pages/UserGuide';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <Route path="/legal" element={<Legal />} />
           <Route path="/privacy-policy" element={<Legal />} />
           <Route path="/terms-condition" element={<Legal />} />
+          <Route path="/doc" element={<UserGuide />} />
         </Route>
       </Routes>
     </BrowserRouter>

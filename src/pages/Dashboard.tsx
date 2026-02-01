@@ -9,6 +9,7 @@ import { cn } from '../lib/cn';
 import { CATEGORIES, type Category } from '../lib/constants';
 import { PageTransition } from '../components/MotionWrapper';
 import { motion, AnimatePresence } from 'framer-motion';
+import { AdBanner } from '../components/AdBanner';
 
 // Memoized LeadCard to prevent unnecessary re-renders of the entire list
 const MemoizedLeadCard = memo(LeadCard);
@@ -30,6 +31,12 @@ export function Dashboard() {
     const [showTemplateModal, setShowTemplateModal] = useState(false);
     const [userProfile, setUserProfile] = useState({ name: '', avatar: '' });
 
+    // Single Lead WhatsApp State
+    const [activeLeadForWhatsApp, setActiveLeadForWhatsApp] = useState<Lead | null>(null);
+    const [draftMessage, setDraftMessage] = useState('');
+
+    const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+
     useEffect(() => {
         loadLeads();
         const savedTemplates = localStorage.getItem('crm_templates');
@@ -40,7 +47,37 @@ export function Dashboard() {
             name: localStorage.getItem('crm_user_name') || '',
             avatar: localStorage.getItem('crm_user_avatar') || ''
         });
+
+        // Check for First Run
+        const hasSeenWelcome = localStorage.getItem('crm_has_seen_welcome');
+        if (!hasSeenWelcome) {
+            setShowWelcomeModal(true);
+        }
     }, []);
+
+    const handleWhatsAppClick = (lead: Lead) => {
+        setActiveLeadForWhatsApp(lead);
+        const defaultMsg = localStorage.getItem('crm_default_wa_msg') || '';
+        setDraftMessage(defaultMsg);
+        setShowTemplateModal(true);
+    };
+
+    const handleSendSingleWhatsApp = () => {
+        if (!activeLeadForWhatsApp) return;
+
+        const cleanPhone = activeLeadForWhatsApp.phone.replace(/\D/g, '');
+        const country = localStorage.getItem('crm_default_country') || '';
+        let finalPhone = cleanPhone;
+        if (country && !cleanPhone.startsWith(country) && cleanPhone.length <= 10) {
+            finalPhone = `${country}${cleanPhone}`;
+        }
+
+        const url = `https://wa.me/${finalPhone}?text=${encodeURIComponent(draftMessage)}`;
+        window.open(url, '_blank');
+
+        setShowTemplateModal(false);
+        setActiveLeadForWhatsApp(null);
+    };
 
     async function loadLeads() {
         // setLoading(true); // Don't show loading spinner on refresh to keep UI stable
@@ -112,6 +149,12 @@ export function Dashboard() {
     };
 
     const handleBulkWhatsApp = (template: MessageTemplate) => {
+        if (activeLeadForWhatsApp) {
+            // If Single Lead Mode: Apply template to draft, but don't send yet
+            setDraftMessage(template.content);
+            return;
+        }
+
         setShowTemplateModal(false);
         const selectedLeads = leads.filter(l => selectedIds.has(l.id));
 
@@ -286,6 +329,7 @@ export function Dashboard() {
                                     key={lead.id}
                                     lead={lead}
                                     onCall={handleCall}
+                                    onWhatsApp={handleWhatsAppClick}
                                     onClick={(l) => navigate(`/leads/${l.id}`)}
                                     selectionMode={selectionMode}
                                     isSelected={selectedIds.has(lead.id)}
@@ -295,6 +339,9 @@ export function Dashboard() {
                         )}
                     </div>
                 )}
+
+                {/* Monetization: Ad Banner */}
+                <AdBanner />
             </div>
 
             {/* Bulk Action Toolbar */}
@@ -345,10 +392,32 @@ export function Dashboard() {
                 <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
                     <div className="bg-card w-full max-w-sm rounded-2xl border border-border p-4 space-y-4 animate-in slide-in-from-bottom">
                         <div className="flex justify-between items-center">
-                            <h3 className="font-bold">Select Template</h3>
-                            <button onClick={() => setShowTemplateModal(false)}><X size={20} /></button>
+                            <h3 className="font-bold">{activeLeadForWhatsApp ? `Message ${activeLeadForWhatsApp.title}` : 'Select Template'}</h3>
+                            <button onClick={() => { setShowTemplateModal(false); setActiveLeadForWhatsApp(null); }}><X size={20} /></button>
                         </div>
-                        <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+
+                        {activeLeadForWhatsApp && (
+                            <div className="space-y-2">
+                                <textarea
+                                    value={draftMessage}
+                                    onChange={(e) => setDraftMessage(e.target.value)}
+                                    className="w-full bg-zinc-900 border border-white/10 rounded-xl p-3 text-sm min-h-[100px] focus:outline-none focus:ring-1 focus:ring-green-500"
+                                    placeholder="Type your message..."
+                                />
+                                <button
+                                    onClick={handleSendSingleWhatsApp}
+                                    className="w-full bg-green-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-green-500 active:scale-95 transition-all"
+                                >
+                                    <MessageCircle size={18} />
+                                    Send on WhatsApp
+                                </button>
+                                <div className="text-xs text-center text-muted-foreground pt-2 border-t border-white/5">
+                                    OR Select a template below to auto-fill
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="space-y-2 max-h-[40vh] overflow-y-auto">
                             {templates.length === 0 && <p className="text-sm text-zinc-500">No templates found in Settings.</p>}
                             {templates.map(t => (
                                 <button
@@ -360,6 +429,45 @@ export function Dashboard() {
                                     <p className="text-xs text-muted-foreground truncate opacity-70">{t.content}</p>
                                 </button>
                             ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showWelcomeModal && (
+                <div className="fixed inset-0 z-[70] bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+                    <div className="bg-card w-full max-w-sm rounded-2xl border border-white/10 p-6 space-y-6 text-center animate-in zoom-in-95 duration-300">
+                        <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-purple-500/20">
+                            <CheckSquare size={32} className="text-white" />
+                        </div>
+
+                        <div className="space-y-2">
+                            <h2 className="text-xl font-bold text-white">Welcome to CRM! 🚀</h2>
+                            <p className="text-zinc-400 text-sm leading-relaxed">
+                                Your new offline-ready, mobile-first CRM is ready. Manage leads, track status, and sync with Google Drive.
+                            </p>
+                        </div>
+
+                        <div className="space-y-3 pt-2">
+                            <button
+                                onClick={() => {
+                                    localStorage.setItem('crm_has_seen_welcome', 'true');
+                                    setShowWelcomeModal(false);
+                                    navigate('/doc');
+                                }}
+                                className="w-full py-3 bg-zinc-800 text-white font-medium rounded-xl hover:bg-zinc-700 transition-colors border border-white/5"
+                            >
+                                Read User Guide
+                            </button>
+                            <button
+                                onClick={() => {
+                                    localStorage.setItem('crm_has_seen_welcome', 'true');
+                                    setShowWelcomeModal(false);
+                                }}
+                                className="w-full py-3 bg-primary text-primary-foreground font-bold rounded-xl shadow-lg shadow-primary/20 active:scale-95 transition-transform"
+                            >
+                                Get Started
+                            </button>
                         </div>
                     </div>
                 </div>

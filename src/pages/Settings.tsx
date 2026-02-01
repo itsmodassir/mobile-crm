@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { useNavigate } from 'react-router-dom';
 import { useGoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
 import { cn } from '../lib/cn';
+import { AdBanner } from '../components/AdBanner';
 
 function TemplateManager() {
     const [templates, setTemplates] = useState<MessageTemplate[]>([]);
@@ -393,9 +394,14 @@ export function Settings() {
         <div className="p-4 safe-top pb-24">
             <header className="mb-6 flex items-center justify-between">
                 <h1 className="text-2xl font-bold">Settings</h1>
-                <button onClick={() => navigate('/')} className="p-3 bg-zinc-800 rounded-full text-zinc-400 hover:text-white">
-                    <X size={20} />
-                </button>
+                <div className="flex gap-2">
+                    <button onClick={() => navigate('/doc')} className="px-3 py-1.5 bg-zinc-800 rounded-lg text-xs font-medium text-blue-400 hover:bg-zinc-700 transition-colors flex items-center gap-1.5">
+                        <span>Help & Guide</span>
+                    </button>
+                    <button onClick={() => navigate('/')} className="p-3 bg-zinc-800 rounded-full text-zinc-400 hover:text-white">
+                        <X size={20} />
+                    </button>
+                </div>
             </header>
 
             <div className="space-y-6">
@@ -581,6 +587,8 @@ export function Settings() {
                     </div>
                 </section>
             </div>
+
+            <AdBanner />
         </div>
     );
 }
