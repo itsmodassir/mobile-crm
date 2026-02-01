@@ -148,7 +148,7 @@ function CloudSyncSection() {
             }
         },
         onError: (error) => console.log('Login Failed:', error),
-        scope: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file'
+        scope: 'https://www.googleapis.com/auth/spreadsheets'
     });
 
     const handleSync = async () => {

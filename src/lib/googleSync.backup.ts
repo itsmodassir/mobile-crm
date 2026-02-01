@@ -50,26 +50,6 @@ export const googleSync = {
             // Allow user to manually enter ID if they want to reconnect? 
             // For now, let's create a NEW one if we don't have it locally.
 
-            // 1. Search for existing file
-            const searchRes = await axios.get(
-                'https://www.googleapis.com/drive/v3/files',
-                {
-                    headers: { Authorization: `Bearer ${token}` },
-                    params: {
-                        q: `name = '${SPREADSHEET_TITLE}' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false`,
-                        fields: 'files(id, name)'
-                    }
-                }
-            );
-
-            if (searchRes.data.files && searchRes.data.files.length > 0) {
-                // Found it! Use the first one.
-                const foundId = searchRes.data.files[0].id;
-                localStorage.setItem('google_spreadsheet_id', foundId);
-                return foundId;
-            }
-
-            // 2. If not found, create new
             const createRes = await axios.post(
                 'https://sheets.googleapis.com/v4/spreadsheets',
                 {
