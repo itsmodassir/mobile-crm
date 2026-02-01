@@ -5,6 +5,7 @@ import { AddLead } from './pages/AddLead';
 import { Settings } from './pages/Settings';
 import { LeadDetails } from './pages/LeadDetails';
 import { Reports } from './pages/Reports';
+import { Legal } from './pages/Legal';
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
           <Route path="/add" element={<AddLead />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/reports" element={<Reports />} />
+          <Route path="/legal" element={<Legal />} />
         </Route>
       </Routes>
     </BrowserRouter>

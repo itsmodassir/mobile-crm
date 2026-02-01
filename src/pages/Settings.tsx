@@ -569,10 +569,15 @@ export function Settings() {
                     )}
                 </section>
 
-                <section className="text-center">
+                <section className="text-center space-y-2">
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-xs text-zinc-500">
                         <Database size={12} />
                         <span>Local Storage v1.0</span>
+                    </div>
+                    <div>
+                        <button onClick={() => navigate('/legal')} className="text-[10px] text-zinc-600 hover:text-zinc-400 underline">
+                            Privacy Policy & Terms
+                        </button>
                     </div>
                 </section>
             </div>
