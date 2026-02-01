@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, memo } from 'react';
 import { Plus, Search, CheckSquare, Trash2, MessageCircle, X, TrendingUp, Mail } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { storage } from '../lib/storage';
@@ -7,8 +7,11 @@ import { StatsRow } from '../components/StatsRow';
 import type { Lead, MessageTemplate } from '../types';
 import { cn } from '../lib/cn';
 import { CATEGORIES, type Category } from '../lib/constants';
-import { PageTransition, staggerContainer, itemVariants } from '../components/MotionWrapper';
+import { PageTransition } from '../components/MotionWrapper';
 import { motion, AnimatePresence } from 'framer-motion';
+
+// Memoized LeadCard to prevent unnecessary re-renders of the entire list
+const MemoizedLeadCard = memo(LeadCard);
 
 export function Dashboard() {
     const navigate = useNavigate();
@@ -40,22 +43,29 @@ export function Dashboard() {
     }, []);
 
     async function loadLeads() {
-        setLoading(true);
+        // setLoading(true); // Don't show loading spinner on refresh to keep UI stable
         const data = await storage.getLeads();
         data.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
         setLeads(data);
         setLoading(false);
     }
 
-    const filteredLeads = leads.filter(l => {
-        const matchesSearch = l.title.toLowerCase().includes(search.toLowerCase()) ||
-            l.phone.includes(search) ||
-            l.city?.toLowerCase().includes(search.toLowerCase());
-        const matchesStatus = statusFilter === 'All' || l.status === statusFilter;
-        const matchesCategory = categoryFilter === 'All' || l.categoryName === categoryFilter;
+    // Optimized Filtering with useMemo and Fuzzy Matching
+    const filteredLeads = useMemo(() => {
+        return leads.filter(l => {
+            const matchesSearch = l.title.toLowerCase().includes(search.toLowerCase()) ||
+                l.phone.includes(search) ||
+                l.city?.toLowerCase().includes(search.toLowerCase());
 
-        return matchesSearch && matchesStatus && matchesCategory;
-    });
+            const matchesStatus = statusFilter === 'All' || l.status === statusFilter;
+
+            // Fuzzy Category Matching: "Real Estate" matches "Real Estate Agency"
+            const matchesCategory = categoryFilter === 'All' ||
+                (l.categoryName && l.categoryName.toLowerCase().includes(categoryFilter.toLowerCase()));
+
+            return matchesSearch && matchesStatus && matchesCategory;
+        });
+    }, [leads, search, statusFilter, categoryFilter]);
 
     const handleCall = (lead: Lead) => {
         localStorage.setItem('crm_is_calling', lead.id);
@@ -264,38 +274,26 @@ export function Dashboard() {
                 {loading ? (
                     <div className="text-center text-muted-foreground mt-20 animate-pulse">Loading leads...</div>
                 ) : (
-                    <motion.div
-                        variants={staggerContainer}
-                        initial="hidden"
-                        animate="visible"
-                        className="space-y-4"
-                    >
-                        <AnimatePresence mode="popLayout">
-                            {filteredLeads.length === 0 ? (
-                                <motion.div
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -10 }}
-                                    className="text-center text-muted-foreground mt-10 p-8 border border-dashed border-border rounded-xl"
-                                >
-                                    <p>No leads found.</p>
-                                </motion.div>
-                            ) : (
-                                filteredLeads.map(lead => (
-                                    <motion.div key={lead.id} variants={itemVariants} layout>
-                                        <LeadCard
-                                            lead={lead}
-                                            onCall={handleCall}
-                                            onClick={(l) => navigate(`/leads/${l.id}`)}
-                                            selectionMode={selectionMode}
-                                            isSelected={selectedIds.has(lead.id)}
-                                            onToggleSelect={handleToggleSelect}
-                                        />
-                                    </motion.div>
-                                ))
-                            )}
-                        </AnimatePresence>
-                    </motion.div>
+                    // REMOVED heavy layout animations (motion.div wrapping list) for performance
+                    <div className="space-y-4">
+                        {filteredLeads.length === 0 ? (
+                            <div className="text-center text-muted-foreground mt-10 p-8 border border-dashed border-border rounded-xl">
+                                <p>No leads found.</p>
+                            </div>
+                        ) : (
+                            filteredLeads.map(lead => (
+                                <MemoizedLeadCard
+                                    key={lead.id}
+                                    lead={lead}
+                                    onCall={handleCall}
+                                    onClick={(l) => navigate(`/leads/${l.id}`)}
+                                    selectionMode={selectionMode}
+                                    isSelected={selectedIds.has(lead.id)}
+                                    onToggleSelect={handleToggleSelect}
+                                />
+                            ))
+                        )}
+                    </div>
                 )}
             </div>
 
