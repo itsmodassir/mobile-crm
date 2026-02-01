@@ -18,6 +18,8 @@ function App() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/legal" element={<Legal />} />
+          <Route path="/privacy-policy" element={<Legal />} />
+          <Route path="/terms-condition" element={<Legal />} />
         </Route>
       </Routes>
     </BrowserRouter>
