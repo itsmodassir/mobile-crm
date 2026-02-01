@@ -1,5 +1,7 @@
 # Mobile CRM PWA
 
+**[Open Live App 📱](https://mobile-crm.netlify.app)**
+
 A local-first, premium Mobile CRM application built with React, TailwindCSS, and PWA capabilities.
 
 ## Features

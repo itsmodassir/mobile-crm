@@ -34,8 +34,17 @@ export const importer = {
                 const title = item.title || item.name || item.businessName || item.placeName || 'Untitled Lead';
                 const phone = item.phone || item.phoneNumber || item.mobile || item.tel || '';
 
-                // If it looks like a wrapper object (no title/phone but maybe children?), skip or log?
-                // We'll trust the fuzzy match for now.
+                // Normalize Category
+                let finalCategory = item.categoryName || item.category || item.type || defaultCategory || 'Other';
+
+                // Try to match against known categories
+                const knownCategories = ['Real Estate', 'Dental', 'Healthcare', 'Education', 'Retail', 'Technology', 'Consulting'];
+                for (const known of knownCategories) {
+                    if (finalCategory.toLowerCase().includes(known.toLowerCase())) {
+                        finalCategory = known;
+                        break;
+                    }
+                }
 
                 const lead: Lead = {
                     id: item.id || uuidv4(),
@@ -54,7 +63,7 @@ export const importer = {
                     website: item.website || item.url, // url often used for website in some APIs
                     email: item.email || item.emailAddress || item.mail,
                     source: item.source || item.leadSource || item.origin,
-                    categoryName: item.categoryName || item.category || item.type || defaultCategory || 'Other',
+                    categoryName: finalCategory,
                     url: item.url || item.googleMapsUrl, // Keep original URL if distinct
 
                     createdAt: Date.now(),

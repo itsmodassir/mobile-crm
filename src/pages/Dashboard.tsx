@@ -224,7 +224,7 @@ export function Dashboard() {
                     <button
                         onClick={() => setCategoryFilter('All')}
                         className={cn(
-                            "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all border",
+                            "px-4 py-3 rounded-xl text-xs font-bold whitespace-nowrap transition-all border",
                             categoryFilter === 'All'
                                 ? "bg-zinc-100 text-zinc-900 border-white shadow-sm"
                                 : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 active:scale-95"
@@ -237,7 +237,7 @@ export function Dashboard() {
                             key={cat}
                             onClick={() => setCategoryFilter(cat)}
                             className={cn(
-                                "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all border",
+                                "px-4 py-3 rounded-xl text-xs font-bold whitespace-nowrap transition-all border",
                                 categoryFilter === cat
                                     ? "bg-zinc-100 text-zinc-900 border-white shadow-sm"
                                     : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 active:scale-95"
