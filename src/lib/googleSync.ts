@@ -3,36 +3,113 @@ import type { Lead } from '../types';
 
 // Placeholder - User will replace this.
 // If you are reading this code: Get your ID from https://console.cloud.google.com/apis/credentials
-export const GOOGLE_CLIENT_ID = '138188155670-t26lo06tekg72vtktqgd3d9c08jp557s.apps.googleusercontent.com';
+export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'MISSING_ENV_VAR';
+export const GOOGLE_CLIENT_SECRET = import.meta.env.VITE_GOOGLE_CLIENT_SECRET || 'MISSING_ENV_VAR'; // REQUIRED for persistent auth
 
 const SPREADSHEET_TITLE = 'CRM_Leads';
+const REDIRECT_URI = window.location.origin; // Dynamically use current origin
+
+interface TokenResponse {
+    access_token: string;
+    refresh_token?: string; // Only returned on first auth code exchange
+    expires_in: number;
+    scope: string;
+    token_type: string;
+}
 
 export const googleSync = {
-    // 1. Verify if we have a valid token (simple check)
-    isAuthenticated() {
-        const token = localStorage.getItem('google_access_token');
+    // 1. Check Auth (Handle Refresh if needed)
+    async checkAndRefreshToken(): Promise<string | null> {
+        let accessToken = localStorage.getItem('google_access_token');
         const expiry = localStorage.getItem('google_token_expiry');
-        if (!token || !expiry) return false;
-        return Date.now() < parseInt(expiry);
+        const refreshToken = localStorage.getItem('google_refresh_token');
+
+        // Case A: Valid Token
+        if (accessToken && expiry && Date.now() < parseInt(expiry)) {
+            return accessToken;
+        }
+
+        // Case B: Expired but have Refresh Token
+        if (refreshToken) {
+            console.log('Token expired. Refreshing...');
+            try {
+                const newTokens = await this.refreshAccessToken(refreshToken);
+                return newTokens.access_token;
+            } catch (e) {
+                console.error('Refresh Failed:', e);
+                this.logout(); // Force re-login
+                return null;
+            }
+        }
+
+        // Case C: No valid auth
+        return null;
     },
 
-    // 2. Save Token after successful login
-    setSession(accessToken: string, expiresInSeconds: number) {
-        localStorage.setItem('google_access_token', accessToken);
+    isAuthenticated(): boolean {
+        // Optimistic check. Real validation happens during sync.
+        return !!localStorage.getItem('google_refresh_token') || !!localStorage.getItem('google_access_token');
+    },
+
+    // 2. Exchange Authorization Code for Tokens (Backend-less flow)
+    async exchangeCodeForToken(code: string): Promise<void> {
+        if (GOOGLE_CLIENT_SECRET.includes('YOUR_CLIENT_SECRET')) {
+            alert('Setup Error: Please add your GOOGLE_CLIENT_SECRET in src/lib/googleSync.ts to enable persistent login.');
+            throw new Error('Missing Client Secret');
+        }
+
+        const params = new URLSearchParams();
+        params.append('code', code);
+        params.append('client_id', GOOGLE_CLIENT_ID);
+        params.append('client_secret', GOOGLE_CLIENT_SECRET);
+        params.append('redirect_uri', REDIRECT_URI);
+        params.append('grant_type', 'authorization_code');
+
+        const res = await axios.post<TokenResponse>('https://oauth2.googleapis.com/token', params, {
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        });
+
+        this.saveSession(res.data);
+    },
+
+    // 3. Refresh Access Token
+    async refreshAccessToken(refreshToken: string): Promise<TokenResponse> {
+        const params = new URLSearchParams();
+        params.append('client_id', GOOGLE_CLIENT_ID);
+        params.append('client_secret', GOOGLE_CLIENT_SECRET);
+        params.append('refresh_token', refreshToken);
+        params.append('grant_type', 'refresh_token');
+
+        const res = await axios.post<TokenResponse>('https://oauth2.googleapis.com/token', params, {
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        });
+
+        this.saveSession(res.data);
+        return res.data;
+    },
+
+    saveSession(data: TokenResponse) {
+        localStorage.setItem('google_access_token', data.access_token);
         // Expire 5 mins early to be safe
-        const expiryTime = Date.now() + (expiresInSeconds - 300) * 1000;
+        const expiryTime = Date.now() + (data.expires_in - 300) * 1000;
         localStorage.setItem('google_token_expiry', expiryTime.toString());
+
+        // Save Refresh Token if present (only on first exchange)
+        if (data.refresh_token) {
+            localStorage.setItem('google_refresh_token', data.refresh_token);
+        }
     },
 
     logout() {
         localStorage.removeItem('google_access_token');
         localStorage.removeItem('google_token_expiry');
+        localStorage.removeItem('google_refresh_token');
         localStorage.removeItem('google_spreadsheet_id');
     },
 
-    // 3. Find or Create Spreadsheet
+    // 4. Find or Create Spreadsheet
     async initSpreadsheet(): Promise<string> {
-        const token = localStorage.getItem('google_access_token');
+        const token = await this.checkAndRefreshToken();
         if (!token) throw new Error('Not authenticated');
 
         // Check if we already have the ID
@@ -40,16 +117,6 @@ export const googleSync = {
         if (existingId) return existingId;
 
         try {
-            // Search for file
-            // Note: Drive API is complex, simplified by just trying to create if not known
-            // Ideally we'd list files `q name = '${SPREADSHEET_TITLE}'` but that needs Drive scope.
-            // For simplicity/privacy, we will just create a new one on first connect 
-            // OR we can rely on storing the ID. If lost, we create a new one. 
-            // Users can merge manually if needed.
-
-            // Allow user to manually enter ID if they want to reconnect? 
-            // For now, let's create a NEW one if we don't have it locally.
-
             // 1. Search for existing file
             const searchRes = await axios.get(
                 'https://www.googleapis.com/drive/v3/files',
@@ -101,9 +168,9 @@ export const googleSync = {
         }
     },
 
-    // 4. Sync: Pull
+    // 5. Sync: Pull
     async pullFromSheet(): Promise<Lead[]> {
-        const token = localStorage.getItem('google_access_token');
+        const token = await this.checkAndRefreshToken();
         const sheetId = localStorage.getItem('google_spreadsheet_id');
         if (!token || !sheetId) return [];
 
@@ -142,13 +209,9 @@ export const googleSync = {
         }
     },
 
-    // 5. Sync: Push All (Overwrite Sheet or Append?)
-    // Strategy: Simple Append is messy. 
-    // Best for "Sync" is: Clear Sheet -> Write All current leads. 
-    // This ensures deletions are synced and no duplicates.
-    // It's inefficient for 10k leads, but fine for <1k.
+    // 6. Sync: Push All
     async pushToSheet(leads: Lead[]) {
-        const token = localStorage.getItem('google_access_token');
+        const token = await this.checkAndRefreshToken();
         const sheetId = localStorage.getItem('google_spreadsheet_id');
         if (!token || !sheetId) throw new Error('Not connected');
 

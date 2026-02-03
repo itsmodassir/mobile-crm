@@ -136,15 +136,17 @@ function CloudSyncSection() {
     }, []);
 
     const login = useGoogleLogin({
+        flow: 'auth-code', // Authorization Code Flow initiated
         onSuccess: async (codeResponse) => {
-            googleSync.setSession(codeResponse.access_token, codeResponse.expires_in);
-            setIsAuthenticated(true);
-            setSyncStatus('Connected! Creating/Finding Sheet...');
+            setSyncStatus('Exchanging code for permanent token...');
             try {
+                await googleSync.exchangeCodeForToken(codeResponse.code);
+                setIsAuthenticated(true);
+                setSyncStatus('Authenticated! Setting up Sheet...');
                 await googleSync.initSpreadsheet();
-                setSyncStatus('Ready to sync.');
-            } catch (err) {
-                setSyncStatus('Error preparing sheet.');
+                setSyncStatus('Ready to sync (Offline Access Enabled).');
+            } catch (err: any) {
+                setSyncStatus(`Auth Failed: ${err.message}`);
                 console.error(err);
             }
         },
@@ -184,9 +186,9 @@ function CloudSyncSection() {
 
     return (
         <div className="bg-card border border-border rounded-xl p-4 space-y-4">
-            {GOOGLE_CLIENT_ID.includes('YOUR_CLIENT_ID') ? (
-                <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-yellow-200 text-xs">
-                    <strong>Setup Required:</strong> Please replace <code>YOUR_CLIENT_ID_HERE</code> in <code>src/lib/googleSync.ts</code> with your actual Google Cloud Client ID to enable this feature.
+            {GOOGLE_CLIENT_ID === 'MISSING_ENV_VAR' ? (
+                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-200 text-xs">
+                    <strong>Setup Error:</strong> Missing <code>VITE_GOOGLE_CLIENT_ID</code> in <code>.env</code> file.
                 </div>
             ) : null}
 
