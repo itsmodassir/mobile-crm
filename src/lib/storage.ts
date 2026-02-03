@@ -24,11 +24,20 @@ export const storage = {
     async bulkSaveLeads(newLeads: Lead[]): Promise<void> {
         await update<Lead[]>(STORE_KEY, (val) => {
             const leads = val || [];
-            // Simple merge: add new ones, update existing ones by ID
+
             newLeads.forEach(newLead => {
                 const index = leads.findIndex((l) => l.id === newLead.id);
                 if (index !== -1) {
-                    leads[index] = { ...leads[index], ...newLead };
+                    const currentLead = leads[index];
+                    const currentUpdated = currentLead.updatedAt || 0;
+                    const newUpdated = newLead.updatedAt || 0;
+
+                    // CONFLICT RESOLUTION: Last Write Wins
+                    // Only overwrite if cloud data (newLead) is NEWER than local data
+                    if (newUpdated > currentUpdated) {
+                        leads[index] = newLead;
+                    }
+                    // Else: Keep local version, it's fresher.
                 } else {
                     leads.push(newLead);
                 }
