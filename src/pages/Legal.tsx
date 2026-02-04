@@ -40,7 +40,7 @@ export function Legal() {
                             If you enable "Cloud Sync", the app creates a connection directly between your device and your Google Drive.
                         </p>
                         <ul className="list-disc pl-5 space-y-1 text-zinc-400">
-                            <li><strong>Access Scope:</strong> We strictly use the `drive.file` scope, meaning we can ONLY access files created by this app. We cannot see your other documents or photos.</li>
+                            <li><strong>Access Scope:</strong> We use the <code>drive.file</code> and <code>spreadsheets</code> scopes. This allows us to create and edit ONLY the specific spreadsheets used for this backup. We cannot access your other files, photos, or emails.</li>
                             <li><strong>Data Transmission:</strong> Data is sent directly from your device to Google's servers. It does not pass through any intermediate server owned by us.</li>
                         </ul>
 
@@ -82,7 +82,7 @@ export function Legal() {
                         <p>
                             If you have questions about this policy or need technical support, please contact us at:
                         </p>
-                        <a href="mailto:support@mobilecrm.app" className="block mt-2 text-blue-400 hover:underline font-medium">support@mobilecrm.app</a>
+                        <a href="mailto:crm@aerostic.com" className="block mt-2 text-blue-400 hover:underline font-medium">crm@aerostic.com</a>
                     </div>
                 </section>
             </div>
