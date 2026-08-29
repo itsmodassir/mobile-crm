@@ -58,8 +58,8 @@ export function Reports() {
 
     return (
         <PageTransition className="bg-background min-h-screen pb-24 safe-top">
-            <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-md p-4 flex items-center gap-4 border-b border-white/5">
-                <button onClick={() => navigate(-1)} className="p-2 -ml-2 rounded-full active:bg-zinc-800">
+            <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-md p-4 flex items-center gap-4 border-b border-black/5">
+                <button onClick={() => navigate(-1)} className="p-2 -ml-2 rounded-full active:bg-zinc-100">
                     <ArrowLeft />
                 </button>
                 <h1 className="font-semibold text-lg">Analytics & Reports</h1>
@@ -137,7 +137,7 @@ export function Reports() {
                                             <span>{source}</span>
                                             <span className="text-muted-foreground">{count}</span>
                                         </div>
-                                        <div className="h-2 w-full bg-zinc-800 rounded-full overflow-hidden">
+                                        <div className="h-2 w-full bg-zinc-100 rounded-full overflow-hidden">
                                             <div
                                                 className="h-full bg-primary rounded-full transition-all duration-500 ease-out"
                                                 style={{ width: `${(count / maxSourceCount) * 100}%` }}
@@ -161,7 +161,7 @@ export function Reports() {
                                             <span>{cat}</span>
                                             <span className="text-muted-foreground">{count}</span>
                                         </div>
-                                        <div className="h-2 w-full bg-zinc-800 rounded-full overflow-hidden">
+                                        <div className="h-2 w-full bg-zinc-100 rounded-full overflow-hidden">
                                             <div
                                                 className="h-full bg-purple-500 rounded-full transition-all duration-500 ease-out"
                                                 style={{ width: `${(count / maxCategoryCount) * 100}%` }}

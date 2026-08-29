@@ -7,12 +7,17 @@ export interface Note {
 
 export interface Lead {
     id: string;
-    title: string;
-    phone: string;
-    status: 'Fresh' | 'Hot' | 'Warm' | 'Cold' | 'Dead';
-    notes: Note[];
-
-    // Enriched / Imported fields
+    workspace_id: string;
+    name: string; // was title
+    phone_number: string; // was phone
+    status: string; // 'pending' | 'converted' | etc
+    followup_stage: string;
+    notes: Note[]; // Keep as Note[] for UI, serialize to JSON for backend
+    intent_score?: number;
+    intent_type?: string;
+    tags?: string[];
+    
+    // Enriched / Imported fields (Keeping for legacy UI if any)
     imageUrl?: string;
     totalScore?: number;
     reviewsCount?: number;
@@ -25,14 +30,32 @@ export interface Lead {
     url?: string;
     email?: string;
     source?: string;
+    source_group?: string;
+    lead_requirement?: string;
+    quotation?: string;
 
     // Meta
-    createdAt: number;
-    updatedAt: number;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface User {
+    id: string;
+    email: string;
+    workspace_id: string;
 }
 
 export interface MessageTemplate {
     id: string;
     name: string;
     content: string;
+}
+
+export interface CustomStatus {
+    id: string;
+    label?: string;
+    value: string;
+    color: string;
+    isDefault?: boolean;
+    order?: number;
 }

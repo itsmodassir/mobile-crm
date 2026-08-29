@@ -48,8 +48,12 @@ export const importer = {
 
                 const lead: Lead = {
                     id: item.id || uuidv4(),
-                    title: title,
-                    phone: phone,
+                    workspace_id: '',
+                    followup_stage: '',
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                    name: title,
+                    phone_number: phone,
                     status: item.status || 'Fresh',
                     notes: Array.isArray(item.notes) ? item.notes : [],
 
@@ -65,9 +69,6 @@ export const importer = {
                     source: item.source || item.leadSource || item.origin,
                     categoryName: finalCategory,
                     url: item.url || item.googleMapsUrl, // Keep original URL if distinct
-
-                    createdAt: Date.now(),
-                    updatedAt: Date.now(),
                 };
 
                 // Filter garbage: Must have at least a Title that isn't default, OR a phone, OR a website

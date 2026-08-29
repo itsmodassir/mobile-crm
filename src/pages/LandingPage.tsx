@@ -14,7 +14,7 @@ export function LandingPage() {
     };
 
     return (
-        <div className="min-h-screen bg-background text-white flex flex-col font-sans selection:bg-primary/30">
+        <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary/30">
 
             {/* Navbar */}
             <nav className="p-6 flex justify-between items-center max-w-7xl mx-auto w-full">
@@ -26,7 +26,7 @@ export function LandingPage() {
                 </div>
                 <button
                     onClick={handleGetStarted}
-                    className="hidden sm:block px-6 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-full text-sm font-medium transition-colors border border-white/5"
+                    className="hidden sm:block px-6 py-2 bg-zinc-100 hover:bg-zinc-200 rounded-full text-sm font-medium transition-colors border border-black/5"
                 >
                     Login
                 </button>
@@ -56,7 +56,7 @@ export function LandingPage() {
                         </span>
                     </h1>
 
-                    <p className="text-lg sm:text-xl text-zinc-400 max-w-2xl mx-auto leading-relaxed">
+                    <p className="text-lg sm:text-xl text-zinc-600 max-w-2xl mx-auto leading-relaxed">
                         The <strong>Local-First</strong> CRM that works offline, syncs with Google Drive, and respects your privacy. No monthly fees. No servers. Just you and your business.
                     </p>
 
@@ -69,7 +69,7 @@ export function LandingPage() {
                         </button>
                         <button
                             onClick={handleGetStarted}
-                            className="w-full sm:w-auto px-8 py-4 bg-zinc-900 border border-zinc-800 text-zinc-300 font-medium rounded-full text-lg hover:bg-zinc-800 transition-colors active:scale-95 transform flex items-center justify-center gap-2"
+                            className="w-full sm:w-auto px-8 py-4 bg-white border border-zinc-200 text-zinc-700 font-medium rounded-full text-lg hover:bg-zinc-100 transition-colors active:scale-95 transform flex items-center justify-center gap-2"
                         >
                             <Smartphone size={20} />
                             Install App
@@ -88,41 +88,41 @@ export function LandingPage() {
             </main>
 
             {/* Feature Grid (Condensed) */}
-            <section className="bg-zinc-900/30 border-t border-white/5 py-12">
+            <section className="bg-white/30 border-t border-black/5 py-12">
                 <div className="max-w-6xl mx-auto px-4 grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <div className="p-6 rounded-2xl bg-zinc-900/50 border border-white/5 hover:border-blue-500/30 transition-colors">
+                    <div className="p-6 rounded-2xl bg-white/50 border border-black/5 hover:border-blue-500/30 transition-colors">
                         <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 mb-4">
                             <Lock size={24} />
                         </div>
                         <h3 className="text-xl font-bold mb-2">Privacy First</h3>
-                        <p className="text-zinc-400 text-sm">Your data never leaves your device unless you sync it to your own Google Drive.</p>
+                        <p className="text-zinc-600 text-sm">Your data never leaves your device unless you sync it to your own Google Drive.</p>
                     </div>
-                    <div className="p-6 rounded-2xl bg-zinc-900/50 border border-white/5 hover:border-purple-500/30 transition-colors">
+                    <div className="p-6 rounded-2xl bg-white/50 border border-black/5 hover:border-purple-500/30 transition-colors">
                         <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-400 mb-4">
                             <Zap size={24} />
                         </div>
                         <h3 className="text-xl font-bold mb-2">Instant Action</h3>
-                        <p className="text-zinc-400 text-sm">One-tap WhatsApp messaging with templates. Call, message, and track leads in seconds.</p>
+                        <p className="text-zinc-600 text-sm">One-tap WhatsApp messaging with templates. Call, message, and track leads in seconds.</p>
                     </div>
-                    <div className="p-6 rounded-2xl bg-zinc-900/50 border border-white/5 hover:border-green-500/30 transition-colors">
+                    <div className="p-6 rounded-2xl bg-white/50 border border-black/5 hover:border-green-500/30 transition-colors">
                         <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center text-green-400 mb-4">
                             <Smartphone size={24} />
                         </div>
                         <h3 className="text-xl font-bold mb-2">Installable PWA</h3>
-                        <p className="text-zinc-400 text-sm">Install directly on iOS and Android. Works perfectly without an internet connection.</p>
+                        <p className="text-zinc-600 text-sm">Install directly on iOS and Android. Works perfectly without an internet connection.</p>
                     </div>
                 </div>
             </section>
 
             {/* Mobile Footer Toggle */}
-            <footer className="border-t border-white/10 bg-black/50 backdrop-blur-lg fixed bottom-0 w-full z-50 md:relative md:bg-transparent md:backdrop-blur-none">
+            <footer className="border-t border-black/10 bg-black/50 backdrop-blur-lg fixed bottom-0 w-full z-50 md:relative md:bg-transparent md:backdrop-blur-none">
 
                 {/* Mobile Handle */}
                 <button
                     onClick={() => setIsFooterOpen(!isFooterOpen)}
-                    className="w-full md:hidden flex flex-col items-center justify-center py-2 text-zinc-500 hover:text-white transition-colors"
+                    className="w-full md:hidden flex flex-col items-center justify-center py-2 text-zinc-500 hover:text-foreground transition-colors"
                 >
-                    <div className="w-12 h-1 bg-zinc-800 rounded-full mb-2" />
+                    <div className="w-12 h-1 bg-zinc-100 rounded-full mb-2" />
                     <div className="flex items-center gap-1 text-xs font-medium uppercase tracking-widest">
                         {isFooterOpen ? 'Close Menu' : 'Legal & Info'}
                         {isFooterOpen ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
@@ -142,10 +142,10 @@ export function LandingPage() {
                                 <div className="text-sm text-zinc-500">
                                     © {new Date().getFullYear()} Aerostic CRM. All rights reserved.
                                 </div>
-                                <div className="flex gap-6 text-sm font-medium text-zinc-400">
-                                    <a href="/privacy-policy" onClick={(e) => { e.preventDefault(); navigate('/privacy-policy'); }} className="hover:text-white transition-colors">Privacy Policy</a>
-                                    <a href="/terms-condition" onClick={(e) => { e.preventDefault(); navigate('/terms-condition'); }} className="hover:text-white transition-colors">Terms of Service</a>
-                                    <a href="mailto:support@aerostic.online" className="hover:text-white transition-colors">Contact</a>
+                                <div className="flex gap-6 text-sm font-medium text-zinc-600">
+                                    <a href="/privacy-policy" onClick={(e) => { e.preventDefault(); navigate('/privacy-policy'); }} className="hover:text-foreground transition-colors">Privacy Policy</a>
+                                    <a href="/terms-condition" onClick={(e) => { e.preventDefault(); navigate('/terms-condition'); }} className="hover:text-foreground transition-colors">Terms of Service</a>
+                                    <a href="mailto:support@aerostic.online" className="hover:text-foreground transition-colors">Contact</a>
                                 </div>
                             </div>
                         </motion.div>

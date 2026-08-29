@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Home, PlusCircle, Settings } from 'lucide-react';
+import { Home, PlusCircle, Settings, Monitor, MessageSquare } from 'lucide-react';
 import { cn } from '../lib/cn';
 
 export function AppLayout() {
@@ -8,6 +8,8 @@ export function AppLayout() {
 
     const navItems = [
         { icon: Home, label: 'Home', path: '/' },
+        { icon: MessageSquare, label: 'Chat', path: '/chat' },
+        { icon: Monitor, label: 'CRM', path: '/advance-crm' },
         { icon: PlusCircle, label: 'Add Lead', path: '/add' },
         { icon: Settings, label: 'Settings', path: '/settings' },
     ];
@@ -26,7 +28,7 @@ export function AppLayout() {
 
                         return (
                             <button
-                                key={item.path}
+                                key={item.label}
                                 onClick={() => navigate(item.path)}
                                 className={cn(
                                     "flex flex-col items-center justify-center w-full h-full transition-colors active:scale-95",

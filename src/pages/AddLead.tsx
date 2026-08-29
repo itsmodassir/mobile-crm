@@ -10,8 +10,8 @@ import { PageTransition } from '../components/MotionWrapper';
 export function AddLead() {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
-        title: '',
-        phone: '',
+        name: '',
+        phone_number: '',
         categoryName: '',
         street: '',
         city: '',
@@ -23,13 +23,14 @@ export function AddLead() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.title || !formData.phone) return;
+        if (!formData.name || !formData.phone_number) return;
 
         setLoading(true);
         const newLead: Lead = {
             id: uuidv4(),
-            title: formData.title,
-            phone: formData.phone,
+            workspace_id: '', // Will be added by apiSync or auth
+            name: formData.name,
+            phone_number: formData.phone_number,
             status: 'Fresh',
             notes: [],
             categoryName: formData.categoryName || 'Other',
@@ -38,8 +39,9 @@ export function AddLead() {
             website: formData.website,
             email: formData.email,
             source: formData.source,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            followup_stage: 'initial',
         };
 
         await storage.saveLead(newLead);
@@ -48,8 +50,8 @@ export function AddLead() {
 
     return (
         <PageTransition className="bg-background min-h-screen pb-24 safe-top">
-            <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-md p-4 flex items-center gap-4 border-b border-white/5">
-                <button onClick={() => navigate(-1)} className="p-2 -ml-2 rounded-full active:bg-zinc-800">
+            <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-md p-4 flex items-center gap-4 border-b border-black/5">
+                <button onClick={() => navigate(-1)} className="p-2 -ml-2 rounded-full active:bg-zinc-100">
                     <ArrowLeft />
                 </button>
                 <h1 className="font-semibold text-lg">Add New Lead</h1>
@@ -62,8 +64,8 @@ export function AddLead() {
                         required
                         type="text"
                         placeholder="e.g. Acme Corp"
-                        value={formData.title}
-                        onChange={e => setFormData({ ...formData, title: e.target.value })}
+                        value={formData.name}
+                        onChange={e => setFormData({ ...formData, name: e.target.value })}
                         className="w-full bg-card border border-border rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary/50 outline-none transition-all"
                     />
                 </div>
@@ -74,8 +76,8 @@ export function AddLead() {
                         required
                         type="tel"
                         placeholder="+91 99999 99999"
-                        value={formData.phone}
-                        onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                        value={formData.phone_number}
+                        onChange={e => setFormData({ ...formData, phone_number: e.target.value })}
                         className="w-full bg-card border border-border rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary/50 outline-none transition-all"
                     />
                 </div>

@@ -1,12 +1,13 @@
 import { useEffect, useState, useMemo, memo } from 'react';
-import { Plus, Search, CheckSquare, Trash2, MessageCircle, X, TrendingUp, Mail } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
+import { Plus, Search, CheckSquare, Trash2, MessageCircle, X, TrendingUp, Mail, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { storage } from '../lib/storage';
+import { apiSync } from '../lib/apiSync';
 import { LeadCard } from '../components/LeadCard';
-import { StatsRow } from '../components/StatsRow';
-import type { Lead, MessageTemplate } from '../types';
+import type { Lead, MessageTemplate, CustomStatus } from '../types';
 import { cn } from '../lib/cn';
-import { CATEGORIES, type Category } from '../lib/constants';
+import { CATEGORIES, DEFAULT_STATUSES, type Category } from '../lib/constants';
 import { PageTransition } from '../components/MotionWrapper';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AdBanner } from '../components/AdBanner';
@@ -18,9 +19,11 @@ export function Dashboard() {
     const navigate = useNavigate();
     const [leads, setLeads] = useState<Lead[]>([]);
     const [search, setSearch] = useState('');
-    const [statusFilter, setStatusFilter] = useState<'All' | 'Hot' | 'Warm' | 'Cold' | 'Fresh'>('All');
+    const [statusFilter, setStatusFilter] = useState<string>('All');
     const [categoryFilter, setCategoryFilter] = useState<Category | 'All'>('All');
+    const [customStatuses, setCustomStatuses] = useState<CustomStatus[]>(DEFAULT_STATUSES);
     const [loading, setLoading] = useState(true);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
     // Bulk Selection State
     const [selectionMode, setSelectionMode] = useState(false);
@@ -37,15 +40,21 @@ export function Dashboard() {
 
     const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
+    // Note Modal State
+    const [showNoteModal, setShowNoteModal] = useState(false);
+    const [noteModalLead, setNoteModalLead] = useState<Lead | null>(null);
+    const [noteModalText, setNoteModalText] = useState('');
+
     useEffect(() => {
         loadLeads();
         const savedTemplates = localStorage.getItem('crm_templates');
         if (savedTemplates) {
             setTemplates(JSON.parse(savedTemplates));
         }
+        const wsId = localStorage.getItem('workspace_id') || 'default';
         setUserProfile({
-            name: localStorage.getItem('crm_user_name') || '',
-            avatar: localStorage.getItem('crm_user_avatar') || ''
+            name: localStorage.getItem(`crm_user_name_${wsId}`) || localStorage.getItem('crm_user_name') || '',
+            avatar: localStorage.getItem(`crm_user_avatar_${wsId}`) || localStorage.getItem('crm_user_avatar') || ''
         });
 
         // Check for First Run
@@ -65,7 +74,7 @@ export function Dashboard() {
     const handleSendSingleWhatsApp = () => {
         if (!activeLeadForWhatsApp) return;
 
-        const cleanPhone = activeLeadForWhatsApp.phone.replace(/\D/g, '');
+        const cleanPhone = activeLeadForWhatsApp.phone_number.replace(/\D/g, '');
         const country = localStorage.getItem('crm_default_country') || '';
         let finalPhone = cleanPhone;
         if (country && !cleanPhone.startsWith(country) && cleanPhone.length <= 10) {
@@ -80,18 +89,49 @@ export function Dashboard() {
     };
 
     async function loadLeads() {
-        // setLoading(true); // Don't show loading spinner on refresh to keep UI stable
+        // Fetch local first
         const data = await storage.getLeads();
-        data.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+        data.sort((a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime());
         setLeads(data);
         setLoading(false);
+
+        // Sync with backend in background
+        try {
+            setErrorMsg(null);
+            
+            try {
+                const remoteSettings = await apiSync.fetchSettings('custom_lead_statuses');
+                if (Array.isArray(remoteSettings) && remoteSettings.length > 0) {
+                    setCustomStatuses(remoteSettings.sort((a: CustomStatus, b: CustomStatus) => (a.order || 0) - (b.order || 0)));
+                } else {
+                    // It returned empty, which means no custom statuses configured for this workspace, use defaults
+                    setCustomStatuses(DEFAULT_STATUSES);
+                }
+            } catch (err: any) {
+                // If it fails to fetch (e.g. proxy doesn't support it), we keep the default and show error
+                setCustomStatuses(DEFAULT_STATUSES);
+                setErrorMsg(err.message || "Failed to fetch custom statuses");
+                console.error("Settings sync error:", err);
+            }
+            
+            const remoteLeads = await apiSync.pullFromBackend();
+            if (remoteLeads.length > 0) {
+                await storage.bulkSaveLeads(remoteLeads);
+                const updatedData = await storage.getLeads();
+                updatedData.sort((a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime());
+                setLeads(updatedData);
+            }
+        } catch (e: any) {
+            console.error('Background sync failed:', e);
+            setErrorMsg(e.message || "Sync failed");
+        }
     }
 
     // Optimized Filtering with useMemo and Fuzzy Matching
     const filteredLeads = useMemo(() => {
         return leads.filter(l => {
-            const matchesSearch = l.title.toLowerCase().includes(search.toLowerCase()) ||
-                l.phone.includes(search) ||
+            const matchesSearch = l.name.toLowerCase().includes(search.toLowerCase()) ||
+                l.phone_number.includes(search) ||
                 l.city?.toLowerCase().includes(search.toLowerCase());
 
             const matchesStatus = statusFilter === 'All' || l.status === statusFilter;
@@ -106,7 +146,7 @@ export function Dashboard() {
 
     const handleCall = (lead: Lead) => {
         localStorage.setItem('crm_is_calling', lead.id);
-        window.location.href = `tel:${lead.phone}`;
+        window.location.href = `tel:${lead.phone_number}`;
     };
 
     // Selection Handlers
@@ -178,7 +218,7 @@ export function Dashboard() {
         setSelectedIds(new Set());
     };
 
-    const handleBulkStatus = async (newStatus: 'Fresh' | 'Hot' | 'Warm' | 'Cold' | 'Dead') => {
+    const handleBulkStatus = async (newStatus: string) => {
         setShowStatusModal(false);
         const updates = Array.from(selectedIds).map(id => ({ id, status: newStatus } as Lead));
         await storage.bulkSaveLeads(updates);
@@ -197,13 +237,53 @@ export function Dashboard() {
     const [senderQueue, setSenderQueue] = useState<Lead[]>([]);
     const [senderMessage, setSenderMessage] = useState('');
 
+    const handleOpenNoteModal = (lead: Lead) => {
+        setNoteModalLead(lead);
+        const latestNote = lead.notes && lead.notes.length > 0 
+            ? [...lead.notes].sort((a, b) => b.timestamp - a.timestamp)[0].content 
+            : '';
+        setNoteModalText(latestNote);
+        setShowNoteModal(true);
+    };
+
+    const handleSaveNote = async () => {
+        if (!noteModalLead) return;
+        
+        const note = {
+            id: uuidv4(),
+            content: noteModalText,
+            timestamp: Date.now(),
+            type: 'manual' as const
+        };
+
+        const updatedNotes = [...(noteModalLead.notes || [])];
+        if (noteModalText.trim()) {
+            updatedNotes.unshift(note);
+        }
+
+        const updatedLead = {
+            ...noteModalLead,
+            notes: updatedNotes,
+            updated_at: new Date().toISOString()
+        };
+
+        await storage.saveLead(updatedLead);
+        
+        // Update local state immediately
+        setLeads(prev => prev.map(l => l.id === noteModalLead.id ? updatedLead : l));
+        
+        setShowNoteModal(false);
+        setNoteModalLead(null);
+        setNoteModalText('');
+    };
+
     return (
         <PageTransition className="safe-top min-h-screen pb-32">
-            <header className="sticky top-0 z-10 bg-background/95 backdrop-blur-md pb-4 pt-4 px-4 border-b border-white/5 space-y-4 shadow-sm">
+            <header className="sticky top-0 z-10 bg-background/95 backdrop-blur-md pb-4 pt-4 px-4 border-b border-black/5 space-y-4 shadow-sm">
                 <div className="flex justify-between items-center">
                     <div className="flex items-center gap-3">
                         {!selectionMode && userProfile.avatar && (
-                            <img src={userProfile.avatar} alt="Profile" className="w-8 h-8 rounded-full border border-white/10 object-cover shadow-sm" />
+                            <img src={userProfile.avatar} alt="Profile" className="w-8 h-8 rounded-full border border-black/10 object-cover shadow-sm" />
                         )}
                         <div className="flex flex-col">
                             <span className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Aerostic CRM</span>
@@ -217,7 +297,7 @@ export function Dashboard() {
                         <motion.button
                             whileTap={{ scale: 0.95 }}
                             onClick={() => navigate('/reports')}
-                            className="p-3 rounded-full border border-border bg-card text-zinc-400 hover:text-primary transition-colors"
+                            className="p-3 rounded-full border border-border bg-card text-zinc-600 hover:text-primary transition-colors"
                         >
                             <TrendingUp size={20} />
                         </motion.button>
@@ -227,7 +307,7 @@ export function Dashboard() {
                             onClick={toggleSelectionMode}
                             className={cn(
                                 "p-3 rounded-full shadow-lg transition-colors border",
-                                selectionMode ? "bg-zinc-800 text-white border-zinc-700" : "bg-card text-zinc-400 border-border"
+                                selectionMode ? "bg-zinc-100 text-foreground border-zinc-300" : "bg-card text-zinc-600 border-border"
                             )}
                         >
                             {selectionMode ? <X size={20} /> : <CheckSquare size={20} />}
@@ -246,109 +326,114 @@ export function Dashboard() {
                     </div>
                 </div>
 
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                    <input
-                        type="text"
-                        placeholder="Search leads..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="w-full bg-card border border-border rounded-xl h-10 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-medium placeholder:text-muted-foreground"
-                    />
-                </div>
+                {errorMsg && (
+                    <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-2 rounded-xl text-sm font-medium mb-4 flex items-center gap-2">
+                        <span>⚠️</span> {errorMsg}
+                    </div>
+                )}
 
-                {/* Status Filters */}
-                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                    {['All', 'Hot', 'Warm', 'Fresh', 'Cold'].map((s) => (
-                        <button
-                            key={s}
-                            onClick={() => setStatusFilter(s as any)}
-                            className={cn(
-                                "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all border",
-                                statusFilter === s
-                                    ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/10 scale-105"
-                                    : "bg-card border-border text-muted-foreground hover:bg-zinc-800 active:scale-95"
-                            )}
-                        >
-                            {s}
-                        </button>
-                    ))}
-                </div>
+                {/* Consolidated Filters Row */}
+                <div className="flex flex-col md:flex-row gap-2">
+                    {/* Search */}
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                        <input
+                            type="text"
+                            placeholder="Search leads..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full bg-card border border-border rounded-xl h-10 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-medium placeholder:text-muted-foreground"
+                        />
+                    </div>
 
-                {/* Category Filters */}
-                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 pt-1 border-t border-white/5">
-                    <button
-                        onClick={() => setCategoryFilter('All')}
-                        className={cn(
-                            "px-4 py-3 rounded-xl text-xs font-bold whitespace-nowrap transition-all border",
-                            categoryFilter === 'All'
-                                ? "bg-zinc-100 text-zinc-900 border-white shadow-sm"
-                                : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 active:scale-95"
-                        )}
-                    >
-                        All Categories
-                    </button>
-                    {CATEGORIES.map(cat => (
-                        <button
-                            key={cat}
-                            onClick={() => setCategoryFilter(cat)}
-                            className={cn(
-                                "px-4 py-3 rounded-xl text-xs font-bold whitespace-nowrap transition-all border",
-                                categoryFilter === cat
-                                    ? "bg-zinc-100 text-zinc-900 border-white shadow-sm"
-                                    : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 active:scale-95"
-                            )}
-                        >
-                            {cat}
-                        </button>
-                    ))}
+                    {/* Filters: Side-by-side on mobile */}
+                    <div className="grid grid-cols-2 md:flex gap-2">
+                        <div className="relative md:w-40">
+                            <select
+                                value={categoryFilter}
+                                onChange={(e) => setCategoryFilter(e.target.value as any)}
+                                className="w-full h-10 bg-card border border-border rounded-xl px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-zinc-700 font-medium cursor-pointer appearance-none"
+                            >
+                                <option value="All">All Categories</option>
+                                {CATEGORIES.map(cat => (
+                                    <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                            </select>
+                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" size={14} />
+                        </div>
+
+                        <div className="relative md:w-40">
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="w-full h-10 bg-card border border-border rounded-xl px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-zinc-700 font-medium cursor-pointer appearance-none"
+                            >
+                                <option value="All">All Statuses</option>
+                                {customStatuses.map(s => (
+                                    <option key={s.value} value={s.value}>{s.label || s.value}</option>
+                                ))}
+                            </select>
+                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" size={14} />
+                        </div>
+                    </div>
                 </div>
             </header>
 
             <div className="px-4 py-4 space-y-6">
                 {selectionMode && (
-                    <div className="flex justify-between items-center bg-zinc-800/50 p-3 rounded-xl border border-white/5">
-                        <span className="text-sm font-medium text-zinc-400">Select All Visible</span>
+                    <div className="flex justify-between items-center bg-zinc-100/50 p-3 rounded-xl border border-black/5">
+                        <span className="text-sm font-medium text-zinc-600">Select All Visible</span>
                         <button onClick={handleSelectAll} className="text-primary text-sm font-bold">
                             {selectedIds.size === filteredLeads.length ? 'Deselect All' : 'Select All'}
                         </button>
                     </div>
                 )}
 
-                {!loading && !selectionMode && <StatsRow leads={leads} />}
-
                 {loading ? (
                     <div className="text-center text-muted-foreground mt-20 animate-pulse">Loading leads...</div>
                 ) : (
-                    // REMOVED heavy layout animations (motion.div wrapping list) for performance
-                    <div className="space-y-4">
-                        {filteredLeads.length === 0 ? (
-                            <div className="text-center text-muted-foreground mt-10 p-8 border border-dashed border-border rounded-xl">
-                                <p>No leads found.</p>
-                            </div>
-                        ) : (
-                            filteredLeads.map(lead => (
-                                <MemoizedLeadCard
-                                    key={lead.id}
-                                    lead={lead}
-                                    onCall={handleCall}
-                                    onWhatsApp={handleWhatsAppClick}
-                                    onClick={(l) => navigate(`/leads/${l.id}`)}
-                                    selectionMode={selectionMode}
-                                    isSelected={selectedIds.has(lead.id)}
-                                    onToggleSelect={handleToggleSelect}
-                                />
-                            ))
-                        )}
+                    <div className="bg-white rounded-2xl shadow-sm border border-black/5 overflow-hidden">
+                        <div className="hidden lg:grid lg:grid-cols-12 lg:gap-4 px-4 py-3 bg-slate-50 border-b border-border text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                            <div className={cn("col-span-3", selectionMode ? "col-span-2" : "col-span-3")}>Contact</div>
+                            <div className="col-span-1">Status</div>
+                            <div className="col-span-1">Follow-up</div>
+                            <div className="col-span-1">Source</div>
+                            <div className="col-span-1">Tags</div>
+                            <div className="col-span-1">Req / Quote</div>
+                            <div className="col-span-2">Note</div>
+                            <div className="col-span-2 text-right pr-4">Actions</div>
+                        </div>
+                        <div className="divide-y divide-border flex flex-col">
+                            {filteredLeads.length === 0 ? (
+                                <div className="text-center text-muted-foreground p-8">
+                                    No leads found.
+                                </div>
+                            ) : (
+                                filteredLeads.map(lead => (
+                                    <MemoizedLeadCard
+                                        key={lead.id}
+                                        lead={lead}
+                                        onCall={handleCall}
+                                        onWhatsApp={handleWhatsAppClick}
+                                        onClick={(l) => navigate(`/leads/${l.id}`)}
+                                        selectionMode={selectionMode}
+                                        isSelected={selectedIds.has(lead.id)}
+                                        onToggleSelect={handleToggleSelect}
+                                        customStatuses={customStatuses}
+                                        onAddNote={handleOpenNoteModal}
+                                    />
+                                ))
+                            )}
+                        </div>
                     </div>
                 )}
 
                 {/* Monetization: Ad Banner */}
                 <AdBanner />
 
-                <footer className="py-6 text-center space-y-2 border-t border-white/5">
+                <footer className="py-6 text-center space-y-2 border-t border-black/5">
                     <p className="text-xs text-zinc-500">© {new Date().getFullYear()} Aerostic CRM</p>
-                    <div className="flex items-center justify-center gap-4 text-[10px] text-zinc-400">
+                    <div className="flex items-center justify-center gap-4 text-[10px] text-zinc-600">
                         <a href="/privacy-policy" className="hover:text-blue-400 transition-colors">Privacy Policy</a>
                         <span className="text-zinc-700">•</span>
                         <a href="/terms-condition" className="hover:text-blue-400 transition-colors">Terms of Service</a>
@@ -363,7 +448,7 @@ export function Dashboard() {
                         initial={{ y: 100 }}
                         animate={{ y: 0 }}
                         exit={{ y: 100 }}
-                        className="fixed bottom-6 left-4 right-4 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl p-2 z-50 flex items-center justify-between gap-2"
+                        className="fixed bottom-6 left-4 right-4 bg-white border border-black/10 rounded-2xl shadow-2xl p-2 z-50 flex items-center justify-between gap-2"
                     >
                         <button
                             onClick={() => setShowTemplateModal(true)}
@@ -383,7 +468,7 @@ export function Dashboard() {
 
                         <button
                             onClick={() => setShowStatusModal(true)}
-                            className="flex-1 px-3 py-3 bg-zinc-700 text-zinc-100 rounded-xl font-medium text-xs flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform"
+                            className="flex-1 px-3 py-3 bg-zinc-200 text-zinc-900 rounded-xl font-medium text-xs flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform"
                         >
                             <CheckSquare size={18} />
                             <span>Status</span>
@@ -399,12 +484,58 @@ export function Dashboard() {
                 )}
             </AnimatePresence>
 
+            {/* Note Modal */}
+            <AnimatePresence>
+                {showNoteModal && noteModalLead && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+                        onClick={() => setShowNoteModal(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl"
+                        >
+                            <h3 className="text-xl font-bold mb-4">Update Note</h3>
+                            <div className="text-sm text-slate-500 mb-4">
+                                Update the most recent note or add a new one for <strong>{noteModalLead.name || noteModalLead.phone_number}</strong>.
+                            </div>
+                            <textarea
+                                value={noteModalText}
+                                onChange={(e) => setNoteModalText(e.target.value)}
+                                className="w-full border rounded-xl p-3 text-sm min-h-[120px] focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none"
+                                placeholder="Enter note details..."
+                            />
+                            <div className="flex gap-3 mt-6">
+                                <button
+                                    onClick={() => setShowNoteModal(false)}
+                                    className="flex-1 py-3 font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSaveNote}
+                                    className="flex-1 py-3 font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors"
+                                >
+                                    Save Note
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* Helper Modals */}
             {showTemplateModal && (
                 <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
                     <div className="bg-card w-full max-w-sm rounded-2xl border border-border p-4 space-y-4 animate-in slide-in-from-bottom">
                         <div className="flex justify-between items-center">
-                            <h3 className="font-bold">{activeLeadForWhatsApp ? `Message ${activeLeadForWhatsApp.title}` : 'Select Template'}</h3>
+                            <h3 className="font-bold">{activeLeadForWhatsApp ? `Message ${activeLeadForWhatsApp.name}` : 'Select Template'}</h3>
                             <button onClick={() => { setShowTemplateModal(false); setActiveLeadForWhatsApp(null); }}><X size={20} /></button>
                         </div>
 
@@ -413,17 +544,17 @@ export function Dashboard() {
                                 <textarea
                                     value={draftMessage}
                                     onChange={(e) => setDraftMessage(e.target.value)}
-                                    className="w-full bg-zinc-900 border border-white/10 rounded-xl p-3 text-sm min-h-[100px] focus:outline-none focus:ring-1 focus:ring-green-500"
+                                    className="w-full bg-white border border-black/10 rounded-xl p-3 text-sm min-h-[100px] focus:outline-none focus:ring-1 focus:ring-green-500"
                                     placeholder="Type your message..."
                                 />
                                 <button
                                     onClick={handleSendSingleWhatsApp}
-                                    className="w-full bg-green-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-green-500 active:scale-95 transition-all"
+                                    className="w-full bg-green-600 text-foreground font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-green-500 active:scale-95 transition-all"
                                 >
                                     <MessageCircle size={18} />
                                     Send on WhatsApp
                                 </button>
-                                <div className="text-xs text-center text-muted-foreground pt-2 border-t border-white/5">
+                                <div className="text-xs text-center text-muted-foreground pt-2 border-t border-black/5">
                                     OR Select a template below to auto-fill
                                 </div>
                             </div>
@@ -435,7 +566,7 @@ export function Dashboard() {
                                 <button
                                     key={t.id}
                                     onClick={() => handleBulkWhatsApp(t)}
-                                    className="w-full text-left p-3 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 border border-white/5 transition-colors"
+                                    className="w-full text-left p-3 rounded-xl bg-zinc-100/50 hover:bg-zinc-100 border border-black/5 transition-colors"
                                 >
                                     <h4 className="font-medium text-sm">{t.name}</h4>
                                     <p className="text-xs text-muted-foreground truncate opacity-70">{t.content}</p>
@@ -448,14 +579,14 @@ export function Dashboard() {
 
             {showWelcomeModal && (
                 <div className="fixed inset-0 z-[70] bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
-                    <div className="bg-card w-full max-w-sm rounded-2xl border border-white/10 p-6 space-y-6 text-center animate-in zoom-in-95 duration-300">
+                    <div className="bg-card w-full max-w-sm rounded-2xl border border-black/10 p-6 space-y-6 text-center animate-in zoom-in-95 duration-300">
                         <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-purple-500/20">
-                            <CheckSquare size={32} className="text-white" />
+                            <CheckSquare size={32} className="text-foreground" />
                         </div>
 
                         <div className="space-y-2">
-                            <h2 className="text-xl font-bold text-white">Welcome to CRM! 🚀</h2>
-                            <p className="text-zinc-400 text-sm leading-relaxed">
+                            <h2 className="text-xl font-bold text-foreground">Welcome to CRM! 🚀</h2>
+                            <p className="text-zinc-600 text-sm leading-relaxed">
                                 Your new offline-ready, mobile-first CRM is ready. Manage leads, track status, and sync with Google Drive.
                             </p>
                         </div>
@@ -467,7 +598,7 @@ export function Dashboard() {
                                     setShowWelcomeModal(false);
                                     navigate('/doc');
                                 }}
-                                className="w-full py-3 bg-zinc-800 text-white font-medium rounded-xl hover:bg-zinc-700 transition-colors border border-white/5"
+                                className="w-full py-3 bg-zinc-100 text-white font-medium rounded-xl hover:bg-zinc-200 transition-colors border border-black/5"
                             >
                                 Read User Guide
                             </button>
@@ -493,20 +624,18 @@ export function Dashboard() {
                             <button onClick={() => setShowStatusModal(false)}><X size={20} /></button>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
-                            {['Fresh', 'Hot', 'Warm', 'Cold', 'Dead'].map(s => (
+                            {customStatuses.map(s => (
                                 <button
-                                    key={s}
-                                    onClick={() => handleBulkStatus(s as any)}
-                                    className={cn(
-                                        "p-3 rounded-xl border font-medium text-sm transition-colors",
-                                        s === 'Hot' && "border-orange-500/30 bg-orange-500/10 text-orange-400",
-                                        s === 'Warm' && "border-yellow-500/30 bg-yellow-500/10 text-yellow-400",
-                                        s === 'Cold' && "border-blue-500/30 bg-blue-500/10 text-blue-400",
-                                        s === 'Fresh' && "border-green-500/30 bg-green-500/10 text-green-400",
-                                        s === 'Dead' && "border-zinc-500/30 bg-zinc-500/10 text-zinc-400",
-                                    )}
+                                    key={s.value}
+                                    onClick={() => handleBulkStatus(s.value)}
+                                    className="p-3 rounded-xl border font-bold text-sm transition-colors text-center opacity-90"
+                                    style={{ 
+                                        backgroundColor: `${s.color}20`,
+                                        color: s.color,
+                                        borderColor: `${s.color}40`
+                                    }}
                                 >
-                                    {s}
+                                    {s.label || s.value}
                                 </button>
                             ))}
                         </div>
@@ -525,12 +654,12 @@ export function Dashboard() {
                         {senderQueue.map((lead) => (
                             <div key={lead.id} className="p-3 bg-card border border-border rounded-xl flex justify-between items-center">
                                 <div>
-                                    <h3 className="font-medium text-sm">{lead.title}</h3>
-                                    <p className="text-xs text-muted-foreground">{lead.phone}</p>
+                                    <h3 className="font-medium text-sm">{lead.name}</h3>
+                                    <p className="text-xs text-muted-foreground">{lead.phone_number}</p>
                                 </div>
                                 <button
                                     onClick={() => {
-                                        const cleanPhone = lead.phone.replace(/\D/g, '');
+                                        const cleanPhone = lead.phone_number.replace(/\D/g, '');
                                         const country = localStorage.getItem('crm_default_country') || '';
                                         let finalPhone = cleanPhone;
                                         if (country && !cleanPhone.startsWith(country) && cleanPhone.length <= 10) {

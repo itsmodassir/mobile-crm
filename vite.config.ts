@@ -31,4 +31,12 @@ export default defineConfig({
       }
     })
   ],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://api.aerostic.com',
+        changeOrigin: true,
+      }
+    }
+  }
 })

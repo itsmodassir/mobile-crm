@@ -7,21 +7,21 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: "#09090b", // zinc-950
-        foreground: "#fafafa", // zinc-50
+        background: "#f8fafc", // slate-50
+        foreground: "#0f172a", // slate-900
         primary: {
           DEFAULT: "#2563eb", // blue-600
           foreground: "#ffffff",
         },
         muted: {
-          DEFAULT: "#27272a", // zinc-800
-          foreground: "#a1a1aa", // zinc-400
+          DEFAULT: "#f1f5f9", // slate-100
+          foreground: "#64748b", // slate-500
         },
         card: {
-            DEFAULT: "#18181b", // zinc-900
-            foreground: "#fafafa",
+            DEFAULT: "#ffffff",
+            foreground: "#0f172a",
         },
-        border: "#27272a", // zinc-800
+        border: "#e2e8f0", // slate-200
       },
       fontFamily: {
         sans: ['Inter', 'sans-serif'],

@@ -1,5 +1,5 @@
-import { Phone, MapPin, Star, MessageCircle, ExternalLink, Mail, Check, Share2 } from 'lucide-react';
-import type { Lead } from '../types';
+import { Phone, MessageCircle, Mail, Check } from 'lucide-react';
+import type { Lead, CustomStatus } from '../types';
 import { cn } from '../lib/cn';
 
 interface LeadCardProps {
@@ -10,9 +10,11 @@ interface LeadCardProps {
     selectionMode?: boolean;
     isSelected?: boolean;
     onToggleSelect?: (id: string) => void;
+    customStatuses?: CustomStatus[];
+    onAddNote?: (lead: Lead) => void;
 }
 
-export function LeadCard({ lead, onCall, onClick, onWhatsApp, selectionMode, isSelected, onToggleSelect }: LeadCardProps) {
+export function LeadCard({ lead, onCall, onClick, onWhatsApp, selectionMode, isSelected, onToggleSelect, customStatuses = [], onAddNote }: LeadCardProps) {
 
     const handleClick = () => {
         if (selectionMode && onToggleSelect) {
@@ -24,163 +26,160 @@ export function LeadCard({ lead, onCall, onClick, onWhatsApp, selectionMode, isS
 
     const hasEmail = Boolean(lead.email);
 
+    // Find custom status matching lead's status
+    const statusObj = customStatuses.find(s => s.value === lead.status);
+    const statusLabel = statusObj?.label || lead.status || 'Fresh';
+    const statusColor = statusObj?.color || '#94a3b8'; // Default slate if not found
+
     return (
-        <div
+        <div 
             onClick={handleClick}
             className={cn(
-                "group relative bg-zinc-900/50 backdrop-blur-sm border rounded-2xl p-4 flex flex-col gap-4 active:scale-[0.99] transition-all duration-200 overflow-hidden cursor-pointer",
-                isSelected ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-white/5 hover:border-zinc-700"
+                "group flex flex-col lg:grid lg:grid-cols-12 gap-3 lg:gap-4 p-4 border-b border-border hover:bg-slate-50 transition-colors cursor-pointer relative",
+                isSelected ? "bg-primary/5" : "bg-card"
             )}
         >
-            {/* Glow Effect */}
-            <div className={cn(
-                "absolute inset-0 bg-gradient-to-br transition-opacity",
-                isSelected ? "from-primary/10 via-transparent to-transparent opacity-100" : "from-blue-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100"
-            )} />
-
-            {/* Selection Checkbox Overlay */}
+            {/* Selection Checkbox (Absolute on mobile, inline on desktop) */}
             {selectionMode && (
-                <div className="absolute top-4 right-4 z-20">
-                    <div className={cn(
-                        "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all shadow-sm",
-                        isSelected ? "bg-primary border-primary text-black scale-110" : "border-zinc-600 bg-zinc-900/50 hover:border-zinc-400"
-                    )}>
+                <div className="absolute top-4 right-4 lg:static lg:col-span-1 lg:flex lg:items-center">
+                    <div 
+                        onClick={(e) => { e.stopPropagation(); onToggleSelect && onToggleSelect(lead.id); }}
+                        className={cn(
+                            "w-6 h-6 lg:w-5 lg:h-5 rounded-md border flex items-center justify-center cursor-pointer",
+                            isSelected ? "bg-primary border-primary text-white" : "border-slate-300 bg-white"
+                        )}
+                    >
                         {isSelected && <Check size={14} strokeWidth={3} />}
                     </div>
                 </div>
             )}
-
-            <div className="relative flex items-start gap-4">
+            
+            {/* Contact Info (Spans 3 cols on desktop) */}
+            <div className={cn("flex items-center gap-3", selectionMode ? "lg:col-span-2" : "lg:col-span-3")}>
                 {lead.imageUrl ? (
-                    <img
-                        src={lead.imageUrl}
-                        alt={lead.title}
-                        className="w-16 h-16 rounded-xl object-cover bg-zinc-800 shadow-sm"
-                    />
+                    <img src={lead.imageUrl} alt={lead.name} className="w-10 h-10 lg:w-8 lg:h-8 rounded-full object-cover bg-slate-100 shadow-sm shrink-0" />
                 ) : (
-                    <div className="w-16 h-16 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-500 font-bold text-xl shadow-inner">
-                        {lead.title.charAt(0)}
+                    <div className="w-10 h-10 lg:w-8 lg:h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-sm lg:text-xs shadow-inner uppercase shrink-0">
+                        {lead.name ? lead.name.charAt(0) : '?'}
                     </div>
                 )}
+                <div className="min-w-0">
+                    <div className="font-semibold text-slate-900 text-sm lg:text-sm truncate">{lead.name || 'Unknown'}</div>
+                    <div className="text-xs text-slate-500 mt-0.5 truncate">{lead.phone_number}</div>
+                </div>
+            </div>
 
-                <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start">
-                        <h3 className="text-base font-bold text-zinc-100 truncate leading-tight pr-8">{lead.title}</h3>
-                        {!selectionMode && lead.totalScore && (
-                            <div className="flex items-center gap-1 text-yellow-500 text-xs font-bold bg-yellow-500/10 px-1.5 py-0.5 rounded-md">
-                                <Star size={10} fill="currentColor" />
-                                <span>{lead.totalScore}</span>
-                            </div>
-                        )}
+            {/* Mobile details grid, Desktop inline columns */}
+            <div className="grid grid-cols-2 gap-2 mt-2 lg:mt-0 lg:contents text-xs">
+                {/* Status (Col 1) */}
+                <div className="flex flex-col lg:flex-row lg:items-center gap-1 lg:col-span-1">
+                    <span className="text-[10px] uppercase text-muted-foreground font-semibold lg:hidden">Status</span>
+                    <span className="px-2 py-1 rounded-full font-bold border text-[10px] uppercase tracking-wider whitespace-nowrap opacity-90 w-fit"
+                        style={{ backgroundColor: `${statusColor}20`, color: statusColor, borderColor: `${statusColor}40` }}>
+                        {statusLabel}
+                    </span>
+                </div>
+
+                {/* Follow-up (Col 1) */}
+                <div className="flex flex-col lg:flex-row lg:items-center gap-1 lg:col-span-1">
+                    <span className="text-[10px] uppercase text-muted-foreground font-semibold lg:hidden">Follow-up</span>
+                    <span className={cn(
+                        "px-1.5 py-0.5 rounded font-bold uppercase tracking-wide text-[10px] w-fit",
+                        lead.followup_stage === 'completed' && "bg-emerald-100 text-emerald-700",
+                        lead.followup_stage === 'followup_1_pending' && "bg-amber-100 text-amber-700",
+                        lead.followup_stage === 'followup_2_pending' && "bg-orange-100 text-orange-700",
+                        !lead.followup_stage && "text-slate-300"
+                    )}>
+                        {lead.followup_stage ? lead.followup_stage.replace(/_/g, ' ') : '—'}
+                    </span>
+                </div>
+
+                {/* Source & Tags (Col 1 & 2) */}
+                <div className="flex flex-col lg:justify-center gap-1 lg:col-span-1">
+                    <span className="text-[10px] uppercase text-muted-foreground font-semibold lg:hidden">Source</span>
+                    <span className="text-slate-600 font-medium truncate max-w-[120px]">{lead.source_group || lead.categoryName || '-'}</span>
+                </div>
+
+                <div className="flex flex-col lg:justify-center gap-1 lg:col-span-1">
+                    <span className="text-[10px] uppercase text-muted-foreground font-semibold lg:hidden">Tags</span>
+                    <div className="flex flex-wrap gap-1">
+                        {lead.tags && lead.tags.length > 0 ? lead.tags.map((tag, idx) => (
+                            <span key={idx} className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider">{tag}</span>
+                        )) : <span className="text-slate-300">—</span>}
                     </div>
+                </div>
 
-                    <p className="text-sm text-blue-400 font-medium mt-0.5 truncate">{lead.categoryName || 'Lead'}</p>
+                {/* Requirement (Col 1) */}
+                <div className="col-span-2 lg:col-span-1 flex flex-col lg:justify-center gap-1">
+                    <span className="text-[10px] uppercase text-muted-foreground font-semibold lg:hidden">Requirement / Quotation</span>
+                    <div className="line-clamp-1 leading-tight text-slate-500">
+                        {lead.lead_requirement || <span className="text-slate-300">No req</span>} 
+                        <span className="mx-1 text-slate-300">|</span> 
+                        {lead.quotation || <span className="text-slate-300">No quote</span>}
+                    </div>
+                </div>
 
-                    <div className="flex items-center gap-1.5 mt-2 text-xs text-zinc-400">
-                        <MapPin size={12} />
-                        <span className="truncate">{lead.city || lead.state || 'Unknown Location'}</span>
+                {/* Note (Col 2 wide) */}
+                <div 
+                    onClick={(e) => {
+                        if (onAddNote) {
+                            e.stopPropagation();
+                            onAddNote(lead);
+                        }
+                    }}
+                    className={cn(
+                        "col-span-2 lg:col-span-2 flex flex-col lg:justify-center gap-1",
+                        onAddNote && "cursor-pointer hover:bg-slate-100 p-1 -m-1 rounded transition-colors"
+                    )}
+                    title="Click to quickly update note"
+                >
+                    <span className="text-[10px] uppercase text-muted-foreground font-semibold lg:hidden">Recent Note</span>
+                    <div className="line-clamp-1 leading-tight text-slate-500 text-xs italic">
+                        {lead.notes && lead.notes.length > 0 
+                            ? `"${[...lead.notes].sort((a, b) => b.timestamp - a.timestamp)[0].content}"` 
+                            : <span className="text-slate-300 not-italic">No note (click to add)</span>}
                     </div>
                 </div>
             </div>
 
-            {/* Action Buttons - Icon Only Row */}
-            <div className={cn("relative flex items-center gap-3 mt-1 transition-opacity", selectionMode && "opacity-50 pointer-events-none")}>
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onCall(lead);
-                    }}
-                    className="h-12 flex-1 rounded-xl flex items-center justify-center text-white bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
-                    aria-label="Call"
-                >
-                    <Phone size={18} />
-                </button>
+            {/* Actions (Spans 2 cols on desktop, full width on mobile) */}
+            <div className="mt-3 lg:mt-0 pt-3 lg:pt-0 border-t border-slate-100 lg:border-0 flex items-center justify-between lg:justify-end gap-2 lg:col-span-2 w-full">
+                <div className="flex items-center gap-1.5 text-slate-500 font-medium text-xs lg:mr-2">
+                    <MessageCircle size={14} />
+                    <span>{lead.notes?.length || 0}</span>
+                </div>
 
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onWhatsApp(lead);
-                    }}
-                    className="h-12 flex-1 rounded-xl flex items-center justify-center text-green-100 bg-green-600 hover:bg-green-500 shadow-lg shadow-green-500/20 active:scale-95 transition-all"
-                    aria-label="WhatsApp"
-                >
-                    <MessageCircle size={18} />
-                </button>
-
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        if (hasEmail) {
-                            window.location.href = `mailto:${lead.email}?subject=Inquiry from ${lead.title}`;
-                        } else {
-                            alert('No email address available for this lead.');
-                        }
-                    }}
-                    className={cn(
-                        "h-12 flex-1 rounded-xl flex items-center justify-center transition-all border border-white/5",
-                        hasEmail
-                            ? "text-zinc-300 bg-zinc-800 hover:bg-zinc-700 active:scale-95"
-                            : "text-zinc-600 bg-zinc-900/50 cursor-not-allowed opacity-60"
-                    )}
-                    aria-label="Email"
-                >
-                    <Mail size={18} />
-                </button>
-
-                <button
-                    onClick={async (e) => {
-                        e.stopPropagation();
-                        const shareData = {
-                            title: lead.title,
-                            text: `Lead: ${lead.title}\nPhone: ${lead.phone}\nStatus: ${lead.status || 'Fresh'}\n${lead.categoryName ? `Category: ${lead.categoryName}` : ''}`,
-                            url: `tel:${lead.phone}`
-                        };
-
-                        try {
-                            if (navigator.share) {
-                                await navigator.share(shareData);
-                            } else {
-                                await navigator.clipboard.writeText(shareData.text);
-                                alert('Lead details copied to clipboard!');
-                            }
-                        } catch (err) {
-                            console.error('Error sharing:', err);
-                        }
-                    }}
-                    className="h-12 w-12 flex items-center justify-center rounded-xl border border-white/5 text-zinc-400 bg-zinc-800 hover:text-white hover:bg-zinc-700 active:scale-95 transition-all shrink-0"
-                    aria-label="Share"
-                >
-                    <Share2 size={18} />
-                </button>
-
-                {lead.url && (
-                    <a
-                        href={lead.url}
-                        target="_blank"
-                        onClick={(e) => e.stopPropagation()}
-                        className="h-12 w-12 flex items-center justify-center rounded-xl border border-white/5 text-zinc-400 bg-zinc-800 hover:text-white hover:bg-zinc-700 active:scale-95 transition-all shrink-0"
-                        aria-label="Website"
+                <div className={cn("flex items-center gap-1.5", selectionMode && "opacity-50 pointer-events-none")}>
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onCall(lead); }}
+                        className="flex-1 lg:flex-none py-2 px-4 lg:p-2 rounded-lg text-white bg-blue-600 hover:bg-blue-500 shadow-sm active:scale-95 transition-all flex justify-center"
+                        aria-label="Call"
                     >
-                        <ExternalLink size={18} />
-                    </a>
-                )}
-            </div>
-
-            <div className="relative flex items-center justify-between pt-3 border-t border-white/5 text-xs">
-                <span className={cn(
-                    "px-2.5 py-1 rounded-full font-medium border text-[10px] uppercase tracking-wide shadow-sm",
-                    lead.status === 'Hot' && "bg-orange-500/10 text-orange-400 border-orange-500/20",
-                    lead.status === 'Warm' && "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-                    lead.status === 'Cold' && "bg-blue-500/10 text-blue-400 border-blue-500/20",
-                    lead.status === 'Fresh' && "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-                    (lead.status === 'Dead' || !lead.status) && "bg-zinc-800 text-zinc-400 border-zinc-700",
-                )}>
-                    {lead.status || 'Fresh'}
-                </span>
-
-                <div className="flex items-center gap-1.5 text-zinc-500 font-medium">
-                    <MessageCircle size={12} />
-                    <span>{lead.notes?.length || 0} Notes</span>
+                        <Phone size={14} className="lg:m-0 mr-1 inline" />
+                        <span className="lg:hidden text-xs font-semibold">Call</span>
+                    </button>
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onWhatsApp(lead); }}
+                        className="flex-1 lg:flex-none py-2 px-4 lg:p-2 rounded-lg text-white bg-green-500 hover:bg-green-400 shadow-sm active:scale-95 transition-all flex justify-center"
+                        aria-label="WhatsApp"
+                    >
+                        <MessageCircle size={14} className="lg:m-0 mr-1 inline" />
+                        <span className="lg:hidden text-xs font-semibold">WhatsApp</span>
+                    </button>
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (hasEmail) window.location.href = `mailto:${lead.email}?subject=Inquiry`;
+                        }}
+                        className={cn(
+                            "flex-1 lg:flex-none py-2 px-4 lg:p-2 rounded-lg transition-all flex justify-center border",
+                            hasEmail ? "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm active:scale-95" : "bg-slate-50 border-transparent text-slate-300 cursor-not-allowed"
+                        )}
+                        aria-label="Email"
+                    >
+                        <Mail size={14} className="lg:m-0 mr-1 inline" />
+                        <span className="lg:hidden text-xs font-semibold">Email</span>
+                    </button>
                 </div>
             </div>
         </div>
