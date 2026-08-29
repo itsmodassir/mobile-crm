@@ -25,9 +25,8 @@ export const auth = {
                 password
             });
             
-            // wbdemo returns { data: { access_token, user: { ... } } }
-            // axios wraps it in response.data, so it's response.data.data
-            const authData = response.data.data;
+            // Depending on the backend wrapper, it might be in response.data or response.data.data
+            const authData = response.data?.data || response.data;
             
             if (!authData || !authData.access_token) {
                 throw new Error("Invalid credentials");
